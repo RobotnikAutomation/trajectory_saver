@@ -2,15 +2,17 @@
 <launch>
     <!-- Set the HOSTNAME parameter -->
   <arg name="HOSTNAME" default="localhost"/>
+  <arg name="database_path" default="$(find trajectory_saver)/default_warehouse_mongo_db"/>
+  <arg name="database_port" default="62345"/>
 
-  <!-- Include the mongodb_store.launch with specified parameters -->
+
   <include file="$(find mongodb_store)/launch/mongodb_store.launch">
-    <arg name="db_path" value="$(find trajectory_saver)/default_warehouse_mongo_db"/>
-    <!-- <arg name="mongodb_port" value="62333"/> -->
+    <arg name="db_path" value="$(arg database_path)"/>
+    <arg name="port" value="$(arg database_port)"/>
   </include>
 
   <node name="message_store_node" pkg="mongodb_store" type="message_store_node.py" output="screen" />
 
-  <!-- <node name="trajectory_saver_node" pkg="trajectory_saver" type="trajectory_saver_node" output="screen" /> -->
+  <node name="trajectory_saver_node" pkg="trajectory_saver" type="trajectory_saver.py" output="screen" />
 
 </launch>

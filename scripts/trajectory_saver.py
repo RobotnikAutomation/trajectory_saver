@@ -17,9 +17,11 @@ from std_msgs.msg import String
 
 class TrajectorySaver:
 
-    def __init__(self):
+    def __init__(self, node_name):
 
         self.msg_store = MessageStoreProxy()
+
+        self.node_name_ = node_name
 
         self.add_trajectory_service = rospy.Service("~/trajectory_saver/add_trajectory", AddTrajectory, self.callback_add_trajectory)
         self.get_trajectory_service = rospy.Service("~/trajectory_saver/get_trajectory", GetTrajectory, self.callback_get_trajectory)
@@ -37,16 +39,27 @@ class TrajectorySaver:
         trajectory = self.msg_store.query_named(req.name, String._type)
 
         if(trajectory[0] is None):
-            self.msg_store.insert_named(req.name, trajectory_msg)
-            return AddTrajectoryResponse(True, "Added")
+            try:
+                self.msg_store.insert_named(req.name, trajectory_msg)
+            except:
+                return AddTrajectoryResponse(False, "")
 
-        self.msg_store.update_named(req.name, trajectory_msg)
+            return AddTrajectoryResponse(True, "Added")
+        try:
+            self.msg_store.update_named(req.name, trajectory_msg)
+        except:
+                return AddTrajectoryResponse(False, "")
+
         return AddTrajectoryResponse(True, "Updated")
 
 
     def callback_get_trajectory(self, req):
 
-        trajectory_msg = self.msg_store.query_named(req.name, String._type)
+        try:
+            trajectory_msg = self.msg_store.query_named(req.name, String._type)
+        except:
+            return GetTrajectoryResponse(False, "Database connection failed")
+
         if(trajectory_msg[0] is None):
             return GetTrajectoryResponse(False, "NOT EXISTS")
 
@@ -54,23 +67,36 @@ class TrajectorySaver:
 
     def callback_remove_trajectory(self, req):
 
-        trajectory_msg = self.msg_store.query_named(req.name, String._type)
+        try:
+            trajectory_msg = self.msg_store.query_named(req.name, String._type)
+        except:
+            return RemoveTrajectoryResponse(False)
 
         if(trajectory_msg[0] is None):
             return RemoveTrajectoryResponse(False)
 
         trajectory_msg_id = trajectory_msg[1]["_id"]
-        self.msg_store.delete(str(trajectory_msg_id))
+
+        try:
+            self.msg_store.delete(str(trajectory_msg_id))
+        except:
+            return RemoveTrajectoryResponse(False)
+
         return RemoveTrajectoryResponse(True)
 
     def callback_amount_of_trajectory(self, req):
-        data = self.msg_store.query(String._type)
+        try:
+            data = self.msg_store.query(String._type)
+        except:
+            return TriggerResponse(False, "")
+
         if(len(data) > 0):
             return TriggerResponse(True, str(len(data)))
 
         return TriggerResponse(False, str(len(data)))
 
 if __name__ == '__main__':
-    rospy.init_node('trajectory_saver')
-    TrajectorySaver()
+    nm = 'trajectory_saver_node'
+    rospy.init_node(nm)
+    TrajectorySaver(nm)
     rospy.spin()
