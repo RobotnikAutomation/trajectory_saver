@@ -1,0 +1,8 @@
+# Empty
+*
+*.png
+*.pcd
+*.ply
+*.pyc
+*.pswp
+!.gitignore
