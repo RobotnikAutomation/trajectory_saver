@@ -13,6 +13,7 @@ from trajectory_saver_msg.srv import RemoveTrajectory, RemoveTrajectoryResponse
 from trajectory_saver_msg.srv import AddPose, AddPoseResponse
 from trajectory_saver_msg.srv import GetPose, GetPoseResponse
 from trajectory_saver_msg.srv import RemovePose, RemovePoseResponse
+from trajectory_saver_msg.srv import GetListOfPoses, GetListOfPosesResponse
 
 from std_srvs.srv import Trigger, TriggerResponse
 
@@ -27,13 +28,14 @@ class TrajectorySaver:
 
         self.node_name_ = node_name
 
-        self.add_pose_service = rospy.Service("~/robot/arm/trajectory_saver/add_pose", AddTrajectory, self.callback_add_pose)
+        self.add_pose_service = rospy.Service("~/robot/arm/trajectory_saver/add_pose", AddPose, self.callback_add_pose)
         self.add_trajectory_service = rospy.Service("~/robot/arm/trajectory_saver/add_trajectory", AddTrajectory, self.callback_add_trajectory)
-        self.get_pose_service = rospy.Service("~/robot/arm/trajectory_saver/get_pose", GetTrajectory, self.callback_get_pose)
+        self.get_pose_service = rospy.Service("~/robot/arm/trajectory_saver/get_pose", GetPose, self.callback_get_pose)
         self.get_trajectory_service = rospy.Service("~/robot/arm/trajectory_saver/get_trajectory", GetTrajectory, self.callback_get_pose)
-        self.remove_pose_service = rospy.Service("~/robot/arm/trajectory_saver/remove_pose", RemoveTrajectory, self.callback_remove_trajectory)
+        self.remove_pose_service = rospy.Service("~/robot/arm/trajectory_saver/remove_pose", RemovePose, self.callback_remove_trajectory)
         self.remove_trajectory_service = rospy.Service("~/robot/arm/trajectory_saver/remove_trajectory", RemoveTrajectory, self.callback_remove_trajectory)
         self.amount_trajectory_service = rospy.Service("~/robot/arm/trajectory_saver/amount_of_trajectories", Trigger, self.callback_amount_of_trajectory)
+        self.list_poses_names_service = rospy.Service("~/robot/arm/trajectory_saver/list_poses_names", GetListOfPoses, self.callback_list_poses_names)
 
         rospy.loginfo("Trajectory Saver Node Started!")
 
@@ -58,6 +60,8 @@ class TrajectorySaver:
             self.msg_store.update_named(joint_pose, req.joint_pose)
         except:
                 return AddPoseResponse(False, "Failed to add joint pose")
+        
+        rospy.loginfo("Successfully added new pose")
 
         return AddPoseResponse(True, "Updated pose")
 
@@ -90,27 +94,28 @@ class TrajectorySaver:
 
         try:
             tf_pose_msg = self.msg_store.query_named(tf_pose, String._type)
+            rospy.loginfo(tf_pose_msg)
         except:
-            return GetPoseResponse(False, "Database connection failed")
+            return GetPoseResponse(False, "Database connection failed", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         if(tf_pose_msg[0] is None):
-            return GetPoseResponse(False, "TF Pose does not exist")
+            return GetPoseResponse(False, "TF Pose does not exist", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         try:
             rpy_pose_msg = self.msg_store.query_named(rpy_pose, String._type)
         except:
-            return GetPoseResponse(False, "Database connection failed")
+            return GetPoseResponse(False, "Database connection failed", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         if(rpy_pose_msg[0] is None):
-            return GetPoseResponse(False, "RPY Pose does not exist")
+            return GetPoseResponse(False, "RPY Pose does not exist", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         try:
             joint_pose_msg = self.msg_store.query_named(joint_pose, String._type)
         except:
-            return GetPoseResponse(False, "Database connection failed")
+            return GetPoseResponse(False, "Database connection failed", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         if(joint_pose_msg[0] is None):
-            return GetPoseResponse(False, "JOINT Pose does not exist")
+            return GetPoseResponse(False, "JOINT Pose does not exist", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
         return GetPoseResponse(True, "", tf_pose_msg, rpy_pose_msg, joint_pose_msg)
 
@@ -208,6 +213,18 @@ class TrajectorySaver:
             return TriggerResponse(True, str(len(data)))
 
         return TriggerResponse(False, str(len(data)))
+
+    def callback_list_poses_names(self, req):
+        try:
+            data = self.msg_store.query(String._type)
+            rospy.loginfo(data)
+        except:
+            return GetListOfPosesResponse(False, "", None)
+
+        if(len(data) > 0):
+            return GetListOfPosesResponse(True, "", str(len(data)))
+
+        return GetListOfPosesResponse(False, "", str(len(data)))
 
 if __name__ == '__main__':
     nm = 'trajectory_saver_node'
