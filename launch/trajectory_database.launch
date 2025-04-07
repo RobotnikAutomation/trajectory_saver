@@ -3,7 +3,7 @@
     <!-- Set the HOSTNAME parameter -->
   <arg name="HOSTNAME" default="localhost"/>
   <arg name="database_path" default="$(find trajectory_saver)/default_warehouse_mongo_db"/>
-  <arg name="database_port" default="63222"/>
+  <arg name="database_port" default="63457"/>
 
 
   <include file="$(find mongodb_store)/launch/mongodb_store.launch">
