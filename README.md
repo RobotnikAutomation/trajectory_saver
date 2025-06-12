@@ -24,6 +24,10 @@ Then, the services are ready to be used:
 - /trajectory_saver/get_trajectory
 - /trajectory_saver/remove_trajectory
 - /trajectory_saver/amount_of_trajectories
+- /trajectory_saver/add_pose
+- /trajectory_saver/get_pose
+- /trajectory_saver/remove_pose
+- /trajectory_saver/list_poses_names
 
 ### /trajectory_saver/add_trajectory
 
@@ -123,6 +127,181 @@ rosservice call /trajectory_saver/amount_of_trajectories "{}"
 
 success: False
 message: "0"
+```
+
+
+### /trajectory_saver/add_pose
+
+Type: trajectory_saver_msg/AddPose
+
+Args:
+
+- name: string with the name to sev the pose
+- tf_pose - pose with quaternion rotation
+- rpy_pose - Roll Pitch Yaw pose
+- joint_pose - std joint state msgs type
+
+It will return true if the message has been added or updated and the message returned will be "Added" or "Updated".
+
+
+```
+rosservice call /trajectory_saver/add_pose "name: ''
+tf_pose:
+  translation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 0.0
+rpy_pose: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+joint_pose:
+  header:
+    seq: 0
+    stamp: {secs: 0, nsecs: 0}
+    frame_id: ''
+  name: ['']
+  position: [0]
+  velocity: [0]
+  effort: [0]"
+
+success: True
+message: "Added"
+```
+
+```
+rosservice call /trajectory_saver/add_pose "name: ''
+tf_pose:
+  translation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+  rotation:
+    x: 0.0
+    y: 0.0
+    z: 0.0
+    w: 0.0
+rpy_pose: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+joint_pose:
+  header:
+    seq: 0
+    stamp: {secs: 0, nsecs: 0}
+    frame_id: ''
+  name: ['']
+  position: [0]
+  velocity: [0]
+  effort: [0]"
+
+success: True
+message: "Updated"
+```
+
+
+### /trajectory_saver/get_pose
+
+Type: trajectory_saver_msg/GetPose
+
+Args:
+
+- name: string with the name of the pose
+
+It will return:
+
+- success: true if it exist, false if not or any other issue
+- tf_pose
+- rpy_pose
+- joint_pose
+
+
+```
+rosservice call /trajectory_saver/get_pose "name: 'Prueba'"
+
+success: True
+message: ''
+tf_pose: 
+  translation: 
+    x: -0.2094543615378314
+    y: -0.3149658117572486
+    z: 0.34701533774632015
+  rotation: 
+    x: 0.7097973032721033
+    y: -0.0835733323604105
+    z: 0.6967071015842098
+    w: 0.06166442238402706
+rpy_pose: 
+  x: -0.35844144225120544
+  y: 0.12079858779907227
+  z: 0.3470079004764557
+  roll: 1.2535295486450195
+  pitch: -1.2197319269180298
+  yaw: 1.2608076333999634
+joint_pose: 
+  header: 
+    seq: 90521
+    stamp: 
+      secs: 1746434808
+      nsecs: 304687153
+    frame_id: ''
+  name: 
+    - robot_arm_elbow_joint
+    - robot_arm_shoulder_lift_joint
+    - robot_arm_shoulder_pan_joint
+    - robot_arm_wrist_1_joint
+    - robot_arm_wrist_2_joint
+    - robot_arm_wrist_3_joint
+  position: [-2.7631566524505615, -1.2988131505301972, -3.142798725758688, -0.6786829394153138, 1.5495738983154297, -1.628315273915426]
+  velocity: [-0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  effort: [9.444382667541504, 0.5233883857727051, -1.085978627204895, 2.9762492179870605, 0.15563079714775085, 0.441201776266098]
+```
+
+```
+rosservice call /trajectory_saver/get_pose "name: 'Prueba'" 
+success: False
+message: "TF Pose does not exist"
+```
+
+### /trajectory_saver/remove_pose
+
+Type: trajectory_saver_msg/RemovePose
+
+Args:
+
+- name: string with the name of the pose
+
+It will return:
+
+- success: true if it was succesfully removed or false if there is any error or the pose doesn't exist
+
+
+```
+rosservice call /trajectory_saver/remove_pose"name: 'Prueba'"
+
+success: True
+```
+
+### /trajectory_saver/list_poses_names
+
+Type: trajectory_saver_msg/GetListOfPoses
+
+Args:
+
+- none
+
+It will return:
+
+- success: true if it found more than one pose in the list
+- names: list of names f poses available in database
+
+```
+rosservice call /trajectory_saver/list_poses_names
+
+success: True
+message: ''
+names: 
+  - HOME
+  - READY
 ```
 
 
