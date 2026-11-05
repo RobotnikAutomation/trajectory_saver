@@ -1,0 +1,5 @@
+/**:
+  ros__parameters:
+    warehouse_plugin: warehouse_ros_sqlite::DatabaseConnection
+    warehouse_port: 0
+    database_name: manipulation

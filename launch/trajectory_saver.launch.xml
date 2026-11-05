@@ -1,0 +1,11 @@
+<launch>
+  <arg name="namespace" default="/robot/arm"/>
+  <arg name="params_file" default="$(find-pkg-share trajectory_saver)/config/trajectory_saver.yaml"/>
+  <arg name="warehouse_host" default="$(env HOME)/.ros/manipulation.sqlite"/>
+  <arg name="database_name" default="manipulation"/>
+  <node pkg="trajectory_saver" exec="trajectory_saver_node" namespace="$(var namespace)" output="screen">
+    <param from="$(var params_file)"/>
+    <param name="warehouse_host" value="$(var warehouse_host)"/>
+    <param name="database_name" value="$(var database_name)"/>
+  </node>
+</launch>

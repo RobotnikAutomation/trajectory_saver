@@ -1,311 +1,220 @@
 # trajectory_saver
 
-This packages is used for saving trajectory for the manipulation system. It will save a String message with the trajectory data in MongoDB. The package creates the services to manage the database.
+## Purpose and Relevance
 
-The package includes a launch that will start the mongodb comunication with the database, the message_store_node and the trajectory_saver_node.
+Persistent named trajectory-string storage for ROS 2 Jazzy using the actual
+`warehouse_ros_sqlite` plugin. Relevant to application-defined reusable
+trajectory data. The node does not plan, parse, validate or execute strings.
+Pose storage belongs to the independent [pose_saver](../pose_saver/README.md)
+package; this node exposes no pose services and opens no pose collection.
 
-1. The first launch (mongodb_store/launch/mongodb_store.launch) starts the comunication with the MongoDB database. The port and path to the database must be set. Moveit launches also comunication with the database (default_warehouse_mongo_db) which is a MongoDB database.
+The executable and default node name are `trajectory_saver_node`.
 
-2. message_store_node starts all the configuration for saving ROS messages.
+## Build and Test
 
-3. trajectory_saver_node is the main node of this package. It creates the services to manage the data in the database. It will structure all the possible expansions of using the database (at the moment we are saving std_msgs::String but can save any type of message even custom messages).
+On Ubuntu 24.04 with ROS 2 Jazzy installed:
 
-## How to use the package?
-
-First, launch the trajectory_database.launch file with the correct configuration:
-
-```
-roslaunch trajectory_saver trajectory_database.launch database_port:=63222 database_path:=$(find trajectory_saver/default_warehouse_mongo_db)
-```
-
-Then, the services are ready to be used:
-
-- /trajectory_saver/add_trajectory
-- /trajectory_saver/get_trajectory
-- /trajectory_saver/remove_trajectory
-- /trajectory_saver/amount_of_trajectories
-- /trajectory_saver/add_pose
-- /trajectory_saver/get_pose
-- /trajectory_saver/remove_pose
-- /trajectory_saver/list_poses_names
-
-### /trajectory_saver/add_trajectory
-
-Type: trajectory_saver_msg/AddTrajectory
-
-Args:
-
-- name: string with the name to sev the trajectory
-- trajectory: string with the trajectory data
-
-It will return true if the message has been added or updated and the message returned will be "Added" or "Updated".
-
-
-```
-rosservice call /trajectory_saver/add_trajectory "name: 'Prueba'
-trajectory: 'primera tayectoria'"
-
-success: True
-message: "Added"
+```bash
+sudo apt install ros-jazzy-warehouse-ros-sqlite ros-jazzy-moveit-msgs \
+  ros-jazzy-ament-cmake-gtest
+source /opt/ros/jazzy/setup.bash
+cd /home/lgranat/workspaces/hmi_centauro_ws
+colcon build --base-paths src/standard_manipulation_packages \
+  --packages-up-to trajectory_saver
+source install/setup.bash
+colcon test --base-paths src/standard_manipulation_packages \
+  --packages-select trajectory_saver
+colcon test-result --verbose
 ```
 
-```
-rosservice call /trajectory_saver/add_trajectory "name: 'Prueba'
-trajectory: 'segunda tayectoria'"
+This builds all local planning, manipulation and storage interfaces in
+`manipulation_msgs` as well.
+Restrict discovery to the migrated tree to avoid duplicate names from the
+adjacent ROS 1 packages. For both storage nodes and their integration test,
+use [database_pose_manager's stack build](../database_pose_manager/README.md#build-and-test).
+Tests use temporary databases, not the configured operational file.
 
-success: True
-message: "Updated"
-```
+## Launch and Configuration
 
-### /trajectory_saver/get_trajectory
+[trajectory_saver.launch.xml](launch/trajectory_saver.launch.xml) starts only
+the saver. Its arguments are `namespace`, `warehouse_host` and `database_name`:
 
-Type: trajectory_saver_msg/GetTrajectory
-
-Args:
-
-- name: string with the name of the trajectory
-
-It will return:
-
-- success: true if it exist, false if not or any other issue
-- trajectory: the trajectory string saved
-
-
-```
-rosservice call /trajectory_saver/get_trajectory "name: 'Prueba'"
-
-success: True
-trajectory: "segunda tayectoria"
-
+```bash
+ros2 launch trajectory_saver trajectory_saver.launch.xml \
+  namespace:=/robot/arm warehouse_host:=$HOME/.ros/manipulation.sqlite \
+  database_name:=manipulation
+ros2 launch trajectory_saver trajectory_saver.launch.xml --show-args
 ```
 
-```
-rosservice call /trajectory_saver/get_trajectory "name: 'Prueba'" 
-success: False
-trajectory: "NOT EXISTS"
-```
+The launch loads the installed YAML first, then applies explicit argument
+overrides. Use the `ros2 run --params-file` example below for direct node
+configuration. The manager's `pose_storage.launch.xml` starts pose storage
+only, not this node. Start trajectory storage separately when needed. Do not
+run two trajectory writers for the same collection.
 
-### /trajectory_saver/remove_trajectory
+## YAML Parameter Reference
 
-Type: trajectory_saver_msg/RemoveTrajectory
+The installed defaults are in
+[config/trajectory_saver.yaml](config/trajectory_saver.yaml). The `/**`
+selector matches the node in any namespace; pass the file only to the saver.
 
-Args:
+| Parameter | YAML/default value | Explanation |
+| --- | --- | --- |
+| `warehouse_plugin` | `warehouse_ros_sqlite::DatabaseConnection` | Plugin loaded through `warehouse_ros`; requires the Jazzy SQLite package |
+| `warehouse_port` | `0` | Compatibility parameter; unused by the SQLite backend |
+| `database_name` | `manipulation` | Nonempty logical warehouse database, distinct from the physical file |
+| `warehouse_host` | Omitted; runtime default `$HOME/.ros/manipulation.sqlite` | SQLite file path, not a network hostname |
 
-- name: string with the name of the trajectory
+`warehouse_host` is intentionally omitted from the shipped YAML so the node
+computes the user's home-directory default at runtime. YAML does not expand
+`$HOME`, `~` or launch substitutions inside arbitrary parameter strings.
+For another location, use an absolute path in a custom file:
 
-It will return:
-
-- success: true if it was succesfully removed or false if there is any error or the trajectory doesn't exist
-
-
-```
-rosservice call /trajectory_saver/remove_trajectory "name: 'Prueba'"
-
-success: True
-```
-
-### /trajectory_saver/amount_of_trajectories
-
-Type: std_srvs/Trigger
-
-Args:
-
-It will return 2 variables:
-
-- success: true if there is any trajectory saved or false if there are no trajectories or any error with the database
-- message: number of trajectories
-
-```
-rosservice call /trajectory_saver/amount_of_trajectories "{}"
-
-success: True
-message: "1"
+```yaml
+/**:
+  ros__parameters:
+    warehouse_plugin: warehouse_ros_sqlite::DatabaseConnection
+    warehouse_host: /var/lib/robot/manipulation.sqlite
+    warehouse_port: 0
+    database_name: manipulation
 ```
 
-```
-rosservice call /trajectory_saver/amount_of_trajectories "{}"
+The process needs permission to create/write that location. Parent directories
+are created automatically. Empty paths/database names, connection failures
+and stored-message schema mismatches fail startup. A relative path depends
+on the process working directory and is discouraged. These are startup
+settings; restart rather than relying on runtime parameter changes.
 
-success: False
-message: "0"
-```
+Run a YAML-configured saver alone:
 
-
-### /trajectory_saver/add_pose
-
-Type: trajectory_saver_msg/AddPose
-
-Args:
-
-- name: string with the name to sev the pose
-- tf_pose - pose with quaternion rotation
-- rpy_pose - Roll Pitch Yaw pose
-- joint_pose - std joint state msgs type
-
-It will return true if the message has been added or updated and the message returned will be "Added" or "Updated".
-
-
-```
-rosservice call /trajectory_saver/add_pose "name: ''
-tf_pose:
-  translation:
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  rotation:
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 0.0
-rpy_pose: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
-joint_pose:
-  header:
-    seq: 0
-    stamp: {secs: 0, nsecs: 0}
-    frame_id: ''
-  name: ['']
-  position: [0]
-  velocity: [0]
-  effort: [0]"
-
-success: True
-message: "Added"
+```bash
+ros2 run trajectory_saver trajectory_saver_node --ros-args \
+  -r __ns:=/robot/arm \
+  --params-file "$(ros2 pkg prefix trajectory_saver)/share/trajectory_saver/config/trajectory_saver.yaml" \
+  -p warehouse_host:=$HOME/.ros/manipulation.sqlite
 ```
 
-```
-rosservice call /trajectory_saver/add_pose "name: ''
-tf_pose:
-  translation:
-    x: 0.0
-    y: 0.0
-    z: 0.0
-  rotation:
-    x: 0.0
-    y: 0.0
-    z: 0.0
-    w: 0.0
-rpy_pose: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
-joint_pose:
-  header:
-    seq: 0
-    stamp: {secs: 0, nsecs: 0}
-    frame_id: ''
-  name: ['']
-  position: [0]
-  velocity: [0]
-  effort: [0]"
+## Service API
 
-success: True
-message: "Updated"
-```
+Every endpoint is fixed under `/robot/arm/trajectory_saver/`, independent of
+the node's launch namespace and name.
 
+| Suffix | Type | Behavior |
+| --- | --- | --- |
+| `add_trajectory` | `manipulation_msgs/srv/AddTrajectory` | Add or replace an opaque string |
+| `get_trajectory` | `manipulation_msgs/srv/GetTrajectory` | Retrieve that exact string |
+| `remove_trajectory` | `manipulation_msgs/srv/RemoveTrajectory` | Remove every revision of the named trajectory |
+| `amount_of_trajectories` | `std_srvs/srv/Trigger` | Decimal unique-name count in `message` |
 
-### /trajectory_saver/get_pose
+Names must not be empty/whitespace-only. Successful empty counts have `success: true`;
+missing get/remove records return `success: false`. Storage exceptions return
+failure and error text when the response has `message`; errors for
+`GetTrajectory` and `RemoveTrajectory` are logged because those contracts
+have no error-message field. Always inspect `success`.
 
-Type: trajectory_saver_msg/GetPose
+## Interaction Examples
 
-Args:
+Store an application-defined trajectory string without commanding motion:
 
-- name: string with the name of the pose
-
-It will return:
-
-- success: true if it exist, false if not or any other issue
-- tf_pose
-- rpy_pose
-- joint_pose
-
-
-```
-rosservice call /trajectory_saver/get_pose "name: 'Prueba'"
-
-success: True
-message: ''
-tf_pose: 
-  translation: 
-    x: -0.2094543615378314
-    y: -0.3149658117572486
-    z: 0.34701533774632015
-  rotation: 
-    x: 0.7097973032721033
-    y: -0.0835733323604105
-    z: 0.6967071015842098
-    w: 0.06166442238402706
-rpy_pose: 
-  x: -0.35844144225120544
-  y: 0.12079858779907227
-  z: 0.3470079004764557
-  roll: 1.2535295486450195
-  pitch: -1.2197319269180298
-  yaw: 1.2608076333999634
-joint_pose: 
-  header: 
-    seq: 90521
-    stamp: 
-      secs: 1746434808
-      nsecs: 304687153
-    frame_id: ''
-  name: 
-    - robot_arm_elbow_joint
-    - robot_arm_shoulder_lift_joint
-    - robot_arm_shoulder_pan_joint
-    - robot_arm_wrist_1_joint
-    - robot_arm_wrist_2_joint
-    - robot_arm_wrist_3_joint
-  position: [-2.7631566524505615, -1.2988131505301972, -3.142798725758688, -0.6786829394153138, 1.5495738983154297, -1.628315273915426]
-  velocity: [-0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-  effort: [9.444382667541504, 0.5233883857727051, -1.085978627204895, 2.9762492179870605, 0.15563079714775085, 0.441201776266098]
+```bash
+ros2 service call /robot/arm/trajectory_saver/add_trajectory \
+  manipulation_msgs/srv/AddTrajectory \
+  '{name: inspection_path, trajectory: "application-defined trajectory data"}'
+ros2 service call /robot/arm/trajectory_saver/get_trajectory \
+  manipulation_msgs/srv/GetTrajectory '{name: inspection_path}'
+ros2 service call /robot/arm/trajectory_saver/amount_of_trajectories \
+  std_srvs/srv/Trigger '{}'
+ros2 service call /robot/arm/trajectory_saver/remove_trajectory \
+  manipulation_msgs/srv/RemoveTrajectory '{name: inspection_path}'
+ros2 param dump /robot/arm/trajectory_saver_node
 ```
 
+Calling `add_trajectory` again with the same name updates the string. The
+application defines the string format and any parsing, validation or execution.
+This is not a typed `moveit_msgs/RobotTrajectory` storage API.
+
+## Database Layout and Persistence
+
+This node opens only the `trajectories` collection:
+
+| Collection | Message type | Metadata |
+| --- | --- | --- |
+| `trajectories` | `std_msgs/msg/String` | `name`, integer `revision` |
+
+Replacements insert a newer revision before deleting older ones; failed insertion preserves
+the previous record. Cleanup failure leaves older revisions, which reads
+ignore by selecting the newest and counts deduplicate. Replacement and
+cleanup are not one database transaction. Normal replacement does not retain
+an intentional history. The file persists after shutdown and can be reopened
+by the node or another compatible warehouse client.
+
+The separate pose saver opens only `poses`. Both nodes may share the same
+SQLite file and logical database, with one writer per collection. Their
+defaults preserve the previous database layout. Use separate files for heavy
+concurrent workloads. Pose and trajectory names may coincide without
+interference. A pose schema problem does not prevent this node from opening
+its trajectory collection.
+
+These are application collections, not MoveIt planning-scene/trajectory
+collections. They do not automatically appear in MoveIt's warehouse UI.
+No ROS 1 MongoDB data or serialized messages are automatically migrated.
+For backup, stop writers before copying the SQLite database and account for
+any SQLite sidecar files; use SQLite's backup facilities for a live database.
+
+## Relationship to Other Packages
+
+- [manipulation_msgs](../manipulation_msgs/README.md#storage-interfaces) defines
+  the trajectory CRUD services; `std_msgs/String` is the persisted message.
+- `warehouse_ros` provides the C++ collection/plugin API;
+  `warehouse_ros_sqlite` provides the actual persistent backend.
+- [pose_saver](../pose_saver/README.md) stores poses independently;
+  [database_pose_manager](../database_pose_manager/README.md) uses that node,
+  not trajectory storage. This saver requires no robot driver or TF.
+- HMI and task clients may query/modify the catalog independently. External
+  motion packages must validate and execute retrieved data themselves.
+
+## Tests
+
+After building the complete stack and sourcing it, run from the workspace root:
+
+```bash
+colcon test --base-paths src/standard_manipulation_packages \
+  --packages-select pose_saver trajectory_saver database_pose_manager
+colcon test-result --verbose
 ```
-rosservice call /trajectory_saver/get_pose "name: 'Prueba'" 
-success: False
-message: "TF Pose does not exist"
-```
 
-### /trajectory_saver/remove_pose
+The saver test uses the real plugin and a temporary SQLite file to verify
+CRUD, replacements, invalid names and persistence after reopen.
+The manager's three-node test exercises all storage services, restarts each
+saver independently and checks concurrent writes to separate collections.
 
-Type: trajectory_saver_msg/RemovePose
+## ROS 1 Origin and Migration
 
-Args:
+The original Python package at
+`standard_manipulation_packages_original/utilities/trajectory_saver/trajectory_saver`
+uses MongoDB's message store. Each pose occupies three separately named
+records ending in `_tf`, `_rpy` and `_joint`; partial writes or deletes can
+leave incomplete poses. Its `get_trajectory` service is mistakenly wired to
+the pose callback. Trajectories are opaque strings in both versions, not
+MoveIt `RobotTrajectory` messages.
 
-- name: string with the name of the pose
+The Jazzy port fixes that callback wiring and replaces MongoDB with the
+installed SQLite warehouse plugin. Pose handling is now in `pose_saver`.
+Existing ROS 1
+MongoDB records, ROS 1 serialized messages and MoveIt warehouse collections
+are not converted automatically. Export old data and reinsert it through
+the ROS 2 services when migration is required; use the application's intended
+pose frames and trajectory-string format during conversion.
 
-It will return:
+Other warehouse clients can access the same database and typed collections,
+but this storage layout is not MoveIt's warehouse UI layout. See
+[Database Layout and Persistence](#database-layout-and-persistence) for
+replacement semantics and schema constraints. Licensing metadata retains
+the original `TODO`; establish the source license before redistribution.
 
-- success: true if it was succesfully removed or false if there is any error or the pose doesn't exist
-
-
-```
-rosservice call /trajectory_saver/remove_pose"name: 'Prueba'"
-
-success: True
-```
-
-### /trajectory_saver/list_poses_names
-
-Type: trajectory_saver_msg/GetListOfPoses
-
-Args:
-
-- none
-
-It will return:
-
-- success: true if it found more than one pose in the list
-- names: list of names f poses available in database
-
-```
-rosservice call /trajectory_saver/list_poses_names
-
-success: True
-message: ''
-names: 
-  - HOME
-  - READY
-```
-
-
-All the [custom srv are in this package](https://github.com/RobotnikAutomation/trajectory_saver_msg).
-
-
-
+The runtime split leaves trajectory endpoints, types, collection and metadata
+unchanged, so existing trajectory records need no conversion. Pose endpoints
+have moved to `pose_saver`; see [pose migration](../pose_saver/README.md#origin-and-migration).
+The previous consolidation of interface packages into `manipulation_msgs`
+is separate from this runtime split; its compatibility notes remain in
+[manipulation_msgs](../manipulation_msgs/README.md#compatibility).
