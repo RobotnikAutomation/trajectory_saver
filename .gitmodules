@@ -1,0 +1,4 @@
+[submodule ".github/instructions"]
+	path = .github/instructions
+	url = git@github.com:LokneyRobotnik/instructions.git
+	branch = devel
